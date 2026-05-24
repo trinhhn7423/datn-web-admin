@@ -1,0 +1,45 @@
+export const API_ENDPOINTS = {
+  AUTH: {
+    ADMIN_LOGIN: "/auth/admin-login",
+    REFRESH_TOKEN: "/auth/refresh",
+    LOGOUT: "/auth/logout",
+    PROFILE: "/auth/profile",
+  },
+  USERS: {
+    GET_LIST: "/users",
+    GET_DETAIL: (id: string | number) => `/users/${id}`,
+    CREATE: "/users",
+    UPDATE: (id: string | number) => `/users/${id}`,
+    DELETE: (id: string | number) => `/users/${id}`,
+  },
+  PRODUCTS: {
+    ADMIN_LIST: "/products/admin/list",
+    ADMIN_DETAIL: (id: string) => `/products/admin/${id}`,
+    CREATE: "/products",
+    UPDATE: (id: string) => `/products/${id}`,
+    TOGGLE_STATUS: (id: string) => `/products/admin/${id}/status`,
+  },
+  ORDERS: {
+    GET_LIST: "/orders",
+    GET_DETAIL: (id: string | number) => `/orders/${id}`,
+    UPDATE_STATUS: (id: string | number) => `/orders/${id}/status`,
+  },
+  CATEGORIES: {
+    GET_LIST: "/categories",
+    GET_DETAIL: (id: number) => `/categories/${id}`,
+    CREATE: "/categories",
+    UPDATE: (id: number) => `/categories/${id}`,
+    DELETE: (id: number) => `/categories/${id}`,
+  },
+  STATISTICS: {
+    KPI: "/statistics/kpi",
+    REVENUE_CHART: "/statistics/revenue-chart",
+    ORDER_STATUS_CHART: "/statistics/order-status-chart",
+    TOP_PRODUCTS: "/statistics/top-products",
+    LOW_STOCK: "/statistics/low-stock",
+    TOP_CUSTOMERS: "/statistics/top-customers",
+  },
+  NOTIFICATIONS: {
+    STREAM: "/notifications/admin/stream",
+  },
+};
