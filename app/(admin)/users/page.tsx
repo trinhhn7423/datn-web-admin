@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Table,
   Button,
@@ -17,7 +17,6 @@ import {
   Statistic,
   Drawer,
   Descriptions,
-  Badge,
   message,
   Row,
   Col,
@@ -42,6 +41,9 @@ import {
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import { User } from "@/types/user.types";
+import { UserService } from "@/services/user.service";
+import { debounce } from "lodash";
 
 // Helper formats for VND
 const formatVND = (value: number) => {
@@ -51,152 +53,96 @@ const formatVND = (value: number) => {
   }).format(value);
 };
 
-// Interface representing a User
-interface MockUser {
-  id: string;
-  fullName: string;
-  email: string;
-  roleId: number; // 1 = Admin, 2 = Customer
-  phone: string;
-  status: "ACTIVE";
-  createdAt: string;
-  avatarUrl?: string;
-  gender: "MALE" | "FEMALE" | "OTHER";
-  address: string;
-  totalOrders: number;
-  totalSpent: number;
-}
-
-const INITIAL_USERS: MockUser[] = [
-  {
-    id: "USR-001",
-    fullName: "Nguyễn Văn Anh",
-    email: "anh.nguyen@gmail.com",
-    roleId: 1, // Admin
-    phone: "0987654321",
-    status: "ACTIVE",
-    createdAt: "2026-01-15T08:30:00Z",
-    avatarUrl: "https://api.dicebear.com/7.x/adventurer/svg?seed=anh",
-    gender: "MALE",
-    address: "123 Cầu Giấy, Hà Nội",
-    totalOrders: 15,
-    totalSpent: 12450000,
-  },
-  {
-    id: "USR-002",
-    fullName: "Trần Thị Bình",
-    email: "binh.tran@gmail.com",
-    roleId: 2, // Customer
-    phone: "0912345678",
-    status: "ACTIVE",
-    createdAt: "2026-02-20T10:15:00Z",
-    avatarUrl: "https://api.dicebear.com/7.x/adventurer/svg?seed=binh",
-    gender: "FEMALE",
-    address: "456 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
-    totalOrders: 8,
-    totalSpent: 4200000,
-  },
-  {
-    id: "USR-003",
-    fullName: "Phạm Minh Cường",
-    email: "cuong.pham@gmail.com",
-    roleId: 2, // Customer
-    phone: "0909090909",
-    status: "ACTIVE",
-    createdAt: "2026-03-05T14:45:00Z",
-    avatarUrl: "https://api.dicebear.com/7.x/adventurer/svg?seed=cuong",
-    gender: "MALE",
-    address: "789 Nguyễn Văn Linh, Đà Nẵng",
-    totalOrders: 23,
-    totalSpent: 35600000,
-  },
-  {
-    id: "USR-004",
-    fullName: "Lê Hoàng Duy",
-    email: "duy.le@gmail.com",
-    roleId: 2, // Customer
-    phone: "0944556677",
-    status: "ACTIVE",
-    createdAt: "2026-03-12T09:00:00Z",
-    avatarUrl: "https://api.dicebear.com/7.x/adventurer/svg?seed=duy",
-    gender: "MALE",
-    address: "101 Trần Hưng Đạo, Cần Thơ",
-    totalOrders: 3,
-    totalSpent: 1550000,
-  },
-  {
-    id: "USR-005",
-    fullName: "Vũ Thị Mai",
-    email: "mai.vu@gmail.com",
-    roleId: 2, // Customer
-    phone: "0966778899",
-    status: "ACTIVE",
-    createdAt: "2026-04-18T16:20:00Z",
-    avatarUrl: "https://api.dicebear.com/7.x/adventurer/svg?seed=mai",
-    gender: "FEMALE",
-    address: "202 Quang Trung, Hải Phòng",
-    totalOrders: 12,
-    totalSpent: 8900000,
-  },
-  {
-    id: "USR-006",
-    fullName: "Đỗ Anh Tuấn",
-    email: "tuan.do@gmail.com",
-    roleId: 2, // Customer
-    phone: "0977889900",
-    status: "ACTIVE",
-    createdAt: "2026-05-02T11:10:00Z",
-    avatarUrl: "https://api.dicebear.com/7.x/adventurer/svg?seed=tuan",
-    gender: "MALE",
-    address: "303 Hùng Vương, Nha Trang",
-    totalOrders: 0,
-    totalSpent: 0,
-  },
-];
-
 export default function UsersPage() {
   // --- States ---
-  const [users, setUsers] = useState<MockUser[]>(INITIAL_USERS);
-  const [searchText, setSearchText] = useState("");
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [inputSearchText, setInputSearchText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<number | undefined>(undefined);
+  const [counters, setCounters] = useState({ total: 0, admins: 0, customers: 0 });
 
-  const [selectedUser, setSelectedUser] = useState<MockUser | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [formModalOpen, setFormModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<MockUser | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [form] = Form.useForm();
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [total, setTotal] = useState(0);
 
+  const [form] = Form.useForm();
   const isEditing = !!editingUser;
 
-  // --- KPI Calculation ---
-  const kpis = useMemo(() => {
-    const total = users.length;
-    const admins = users.filter((u) => u.roleId === 1).length;
-    const customers = users.filter((u) => u.roleId === 2).length;
+  // --- Fetch Data ---
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params: any = {
+        page: currentPage,
+        size: pageSize,
+      };
 
-    return { total, admins, customers };
-  }, [users]);
+      if (searchQuery) {
+        if (searchQuery.trim().includes("@")) {
+          params.email = searchQuery.trim();
+        } else {
+          params.fullName = searchQuery.trim();
+        }
+      }
 
-  // --- Search & Filter Logic ---
-  const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
-      const matchSearch =
-        u.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchText.toLowerCase()) ||
-        u.phone.includes(searchText) ||
-        u.id.toLowerCase().includes(searchText.toLowerCase());
+      if (roleFilter !== undefined) {
+        params.roleId = roleFilter;
+      }
 
-      const matchRole = roleFilter === undefined || u.roleId === roleFilter;
+      const res = await UserService.getList(params);
+      setUsers(res.items);
+      setTotal(res.total);
+    } catch (err: any) {
+      message.error(err.message || "Không thể tải danh sách người dùng");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, pageSize, searchQuery, roleFilter]);
 
-      return matchSearch && matchRole;
-    });
-  }, [users, searchText, roleFilter]);
+  const fetchCounters = useCallback(async () => {
+    try {
+      const data = await UserService.getCounters();
+      setCounters(data);
+    } catch (err: any) {
+      console.error("Lỗi tải thống kê người dùng:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchCounters();
+  }, [fetchUsers, fetchCounters]);
+
+  // Debounced search handler
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((value: string) => {
+        setSearchQuery(value);
+        setCurrentPage(1);
+      }, 500),
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
 
   // --- Handlers ---
   const handleResetFilters = () => {
-    setSearchText("");
+    setInputSearchText("");
+    setSearchQuery("");
     setRoleFilter(undefined);
+    setCurrentPage(1);
     message.info("Đã đặt lại bộ lọc!");
   };
 
@@ -207,24 +153,20 @@ export default function UsersPage() {
       roleId: 2, // Customer by default
       gender: "MALE",
       address: "",
-      totalOrders: 0,
-      totalSpent: 0,
     });
     setFormModalOpen(true);
   };
 
-  const handleOpenEdit = (user: MockUser, e: React.MouseEvent) => {
+  const handleOpenEdit = (user: User, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingUser(user);
     form.setFieldsValue({
       fullName: user.fullName,
       email: user.email,
-      phone: user.phone,
+      phone: user.addresses?.[0]?.receiverPhone || "",
       roleId: user.roleId,
-      gender: user.gender,
-      address: user.address,
-      totalOrders: user.totalOrders,
-      totalSpent: user.totalSpent,
+      gender: "MALE",
+      address: user.addresses?.[0]?.detailAddress || "",
     });
     setFormModalOpen(true);
   };
@@ -240,70 +182,61 @@ export default function UsersPage() {
       const values = await form.validateFields();
       setSubmitLoading(true);
 
-      // Simulate a small delay for premium feel
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
       if (isEditing && editingUser) {
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === editingUser.id
-              ? {
-                  ...u,
-                  fullName: values.fullName,
-                  email: values.email,
-                  phone: values.phone,
-                  roleId: values.roleId,
-                  gender: values.gender,
-                  address: values.address,
-                  totalOrders: values.totalOrders,
-                  totalSpent: values.totalSpent,
-                  avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(
-                    values.fullName
-                  )}`,
-                }
-              : u
-          )
-        );
-        message.success("Cập nhật thông tin người dùng thành công!");
-      } else {
-        const newUser: MockUser = {
-          id: `USR-${Math.floor(100 + Math.random() * 900)}`,
+        const payload: any = {
           fullName: values.fullName,
           email: values.email,
-          phone: values.phone,
           roleId: values.roleId,
-          status: "ACTIVE",
-          gender: values.gender,
+          phone: values.phone,
           address: values.address,
-          createdAt: dayjs().toISOString(),
+        };
+        if (values.password) {
+          payload.password = values.password;
+        }
+        await UserService.update(editingUser.id, payload);
+        message.success("Cập nhật thông tin người dùng thành công!");
+      } else {
+        const payload = {
+          fullName: values.fullName,
+          email: values.email,
+          password: values.password,
+          roleId: values.roleId,
+          phone: values.phone,
+          address: values.address,
           avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(
             values.fullName
           )}`,
-          totalOrders: values.totalOrders || 0,
-          totalSpent: values.totalSpent || 0,
         };
-        setUsers((prev) => [newUser, ...prev]);
+        await UserService.create(payload);
         message.success("Thêm người dùng mới thành công!");
       }
 
       handleCloseModal();
-    } catch (err) {
-      console.error("Form Validation Error:", err);
+      fetchUsers();
+      fetchCounters();
+    } catch (err: any) {
+      message.error(err.message || "Có lỗi xảy ra khi xử lý dữ liệu");
     } finally {
       setSubmitLoading(false);
     }
   };
 
-  const handleDelete = (id: string, e?: React.MouseEvent) => {
+  const handleDelete = async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-    message.success("Đã xóa người dùng thành công!");
-    if (selectedUser?.id === id) {
-      setDetailDrawerOpen(false);
+    try {
+      await UserService.delete(id);
+      message.success("Đã xóa người dùng thành công!");
+      fetchUsers();
+      fetchCounters();
+      if (selectedUser?.id === id) {
+        setDetailDrawerOpen(false);
+      }
+    } catch (err: any) {
+      message.error(err.message || "Không thể xóa người dùng");
     }
   };
 
-  const handleViewDetails = (user: MockUser) => {
+  const handleViewDetails = (user: User) => {
     setSelectedUser(user);
     setDetailDrawerOpen(true);
   };
@@ -335,14 +268,16 @@ export default function UsersPage() {
   };
 
   // --- Table Columns Definition ---
-  const columns: ColumnsType<MockUser> = [
+  const columns: ColumnsType<User> = [
     {
       title: "Mã ND",
       dataIndex: "id",
       key: "id",
       width: 100,
       render: (id: string) => (
-        <span className="tw:font-mono tw:text-slate-500 tw:text-xs">{id}</span>
+        <span className="tw:font-mono tw:text-slate-500 tw:text-xs">
+          {id ? id.slice(0, 8).toUpperCase() : "—"}
+        </span>
       ),
     },
     {
@@ -351,7 +286,7 @@ export default function UsersPage() {
       render: (_, record) => (
         <div className="tw:flex tw:items-center tw:gap-3">
           <Avatar
-            src={record.avatarUrl}
+            src={record.avatarUrl || undefined}
             icon={<UserOutlined />}
             size="large"
             className="tw:bg-blue-50 tw:border tw:border-blue-100"
@@ -367,11 +302,12 @@ export default function UsersPage() {
     },
     {
       title: "Số điện thoại",
-      dataIndex: "phone",
       key: "phone",
       width: 130,
-      render: (phone: string) => (
-        <span className="tw:text-slate-600 tw:font-medium">{phone || "—"}</span>
+      render: (_, record) => (
+        <span className="tw:text-slate-600 tw:font-medium">
+          {record.addresses?.[0]?.receiverPhone || "—"}
+        </span>
       ),
     },
     {
@@ -461,9 +397,9 @@ export default function UsersPage() {
           <Card className="tw:rounded-2xl tw:shadow-sm tw:border-slate-100 hover:tw:shadow-md tw:transition-all">
             <Statistic
               title={<span className="tw:text-slate-400 tw:text-xs tw:font-semibold">Tổng tài khoản</span>}
-              value={kpis.total}
+              value={counters.total}
               prefix={<UserOutlined className="tw:text-blue-500 tw:mr-2" />}
-              valueStyle={{ fontSize: "24px", fontWeight: "800", color: "#1e293b" }}
+              styles={{ content: { fontSize: "24px", fontWeight: "800", color: "#1e293b" } }}
             />
           </Card>
         </Col>
@@ -471,9 +407,9 @@ export default function UsersPage() {
           <Card className="tw:rounded-2xl tw:shadow-sm tw:border-slate-100 hover:tw:shadow-md tw:transition-all">
             <Statistic
               title={<span className="tw:text-slate-400 tw:text-xs tw:font-semibold">Quản trị viên</span>}
-              value={kpis.admins}
+              value={counters.admins}
               prefix={<SafetyCertificateOutlined className="tw:text-purple-500 tw:mr-2" />}
-              valueStyle={{ fontSize: "24px", fontWeight: "800", color: "#8b5cf6" }}
+              styles={{ content: { fontSize: "24px", fontWeight: "800", color: "#8b5cf6" } }}
             />
           </Card>
         </Col>
@@ -481,24 +417,28 @@ export default function UsersPage() {
           <Card className="tw:rounded-2xl tw:shadow-sm tw:border-slate-100 hover:tw:shadow-md tw:transition-all">
             <Statistic
               title={<span className="tw:text-slate-400 tw:text-xs tw:font-semibold">Khách hàng</span>}
-              value={kpis.customers}
+              value={counters.customers}
               prefix={<ShoppingCartOutlined className="tw:text-amber-500 tw:mr-2" />}
-              valueStyle={{ fontSize: "24px", fontWeight: "800", color: "#f59e0b" }}
+              styles={{ content: { fontSize: "24px", fontWeight: "800", color: "#f59e0b" } }}
             />
           </Card>
         </Col>
       </Row>
 
       {/* Row 2: Search & Filter Panel */}
-      <Card className="tw:rounded-2xl tw:shadow-sm tw:border-slate-100 tw:bg-slate-50/50" bodyStyle={{ padding: "16px 24px" }}>
-        <div className="tw:flex tw:flex-col lg:tw:flex-row lg:tw:items-center tw:justify-between tw:gap-4">
+      <Card className="tw:rounded-2xl tw:shadow-sm tw:border-slate-100 tw:bg-slate-50/50" styles={{ body: { padding: "16px 24px" } }}>
+        <div className="tw:flex tw:flex-col tw:lg:flex-row tw:lg:items-center tw:justify-between tw:gap-4">
           {/* Filters on Left */}
-          <Space wrap size="middle" className="tw:w-full lg:tw:w-auto">
+          <Space wrap size="middle" className="tw:w-full tw:lg:w-auto">
             <Input
-              placeholder="Tìm theo tên, email, SĐT hoặc mã..."
+              placeholder="Tìm theo tên hoặc email..."
               prefix={<SearchOutlined className="tw:text-slate-400" />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+              value={inputSearchText}
+              onChange={(e) => {
+                const val = e.target.value;
+                setInputSearchText(val);
+                debouncedSearch(val);
+              }}
               style={{ width: 280 }}
               className="tw:h-10 tw:rounded-xl"
               allowClear
@@ -506,7 +446,10 @@ export default function UsersPage() {
             <Select
               placeholder="Lọc vai trò"
               value={roleFilter}
-              onChange={setRoleFilter}
+              onChange={(val) => {
+                setRoleFilter(val);
+                setCurrentPage(1);
+              }}
               style={{ width: 180 }}
               className="tw:h-10"
               allowClear
@@ -515,7 +458,7 @@ export default function UsersPage() {
                 { value: 2, label: "Khách hàng" },
               ]}
             />
-            {(searchText || roleFilter !== undefined) && (
+            {(inputSearchText || roleFilter !== undefined) && (
               <Button
                 type="text"
                 danger
@@ -529,9 +472,9 @@ export default function UsersPage() {
           </Space>
 
           {/* Action and Count on Right */}
-          <Space size="large" className="tw:w-full lg:tw:w-auto tw:justify-between lg:tw:justify-end">
+          <Space size="large" className="tw:w-full tw:lg:w-auto tw:justify-between tw:lg:justify-end">
             <div className="tw:text-xs tw:text-slate-400 tw:font-medium">
-              Hiển thị {filteredUsers.length} trên tổng số {users.length} người dùng
+              Hiển thị {users.length} trên tổng số {total} người dùng
             </div>
             <Button
               type="primary"
@@ -548,14 +491,21 @@ export default function UsersPage() {
 
       {/* Row 3: Users Table */}
       <div className="tw:bg-white tw:rounded-2xl tw:shadow-sm tw:border tw:border-slate-100 tw:overflow-hidden">
-        <Table<MockUser>
+        <Table<User>
           columns={columns}
-          dataSource={filteredUsers}
+          dataSource={users}
           rowKey="id"
+          loading={loading}
           pagination={{
-            pageSize: 5,
+            current: currentPage,
+            pageSize: pageSize,
+            total: total,
             showSizeChanger: true,
             pageSizeOptions: ["5", "10", "20"],
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              if (size) setPageSize(size);
+            },
             className: "tw:px-6 tw:py-4",
           }}
           className="tw:w-full"
@@ -586,7 +536,8 @@ export default function UsersPage() {
             {isEditing ? "Lưu thay đổi" : "Thêm mới"}
           </Button>,
         ]}
-        destroyOnClose
+        forceRender
+        destroyOnHidden
         width={640}
       >
         <Form form={form} layout="vertical" className="tw:mt-4">
@@ -612,7 +563,22 @@ export default function UsersPage() {
                   { type: "email", message: "Email không đúng định dạng!" },
                 ]}
               >
-                <Input placeholder="VD: email@example.com" className="tw:h-10 tw:rounded-lg" />
+                <Input placeholder="VD: email@example.com" className="tw:h-10 tw:rounded-lg" disabled={isEditing} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                name="password"
+                label={isEditing ? "Mật khẩu mới (Bỏ trống nếu không đổi)" : "Mật khẩu ban đầu"}
+                rules={[
+                  { required: !isEditing, message: "Vui lòng nhập mật khẩu!" },
+                  { min: 6, message: "Mật khẩu tối thiểu 6 ký tự!" },
+                ]}
+              >
+                <Input.Password placeholder="Mật khẩu tối thiểu 6 ký tự" className="tw:h-10 tw:rounded-lg" />
               </Form.Item>
             </Col>
           </Row>
@@ -659,19 +625,6 @@ export default function UsersPage() {
           >
             <Input placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố" className="tw:h-10 tw:rounded-lg" />
           </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="totalOrders" label="Số đơn hàng (Lịch sử)">
-                <Input type="number" min={0} className="tw:h-10 tw:rounded-lg" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="totalSpent" label="Tổng chi tiêu (VND)">
-                <Input type="number" min={0} className="tw:h-10 tw:rounded-lg" />
-              </Form.Item>
-            </Col>
-          </Row>
         </Form>
       </Modal>
 
@@ -679,15 +632,17 @@ export default function UsersPage() {
       <Drawer
         title={
           <div className="tw:flex tw:items-center tw:gap-3">
-            <Avatar src={selectedUser?.avatarUrl} icon={<UserOutlined />} size="large" />
+            <Avatar src={selectedUser?.avatarUrl || undefined} icon={<UserOutlined />} size="large" />
             <div className="tw:flex tw:flex-col">
               <span className="tw:font-bold tw:text-slate-800">{selectedUser?.fullName}</span>
-              <span className="tw:text-xs tw:text-slate-500 tw:font-mono">{selectedUser?.id}</span>
+              <span className="tw:text-xs tw:text-slate-500 tw:font-mono">
+                {selectedUser?.id ? selectedUser.id.slice(0, 8).toUpperCase() : ""}
+              </span>
             </div>
           </div>
         }
         placement="right"
-        width={500}
+        size={500}
         onClose={() => setDetailDrawerOpen(false)}
         open={detailDrawerOpen}
         extra={
@@ -723,30 +678,19 @@ export default function UsersPage() {
                 <Descriptions.Item label="Số điện thoại">
                   <div className="tw:flex tw:items-center tw:gap-2">
                     <PhoneOutlined className="tw:text-slate-400" />
-                    <span>{selectedUser.phone}</span>
+                    <span>{selectedUser.addresses?.[0]?.receiverPhone || "—"}</span>
                   </div>
                 </Descriptions.Item>
                 <Descriptions.Item label="Giới tính">
                   <div className="tw:flex tw:items-center tw:gap-2">
-                    {selectedUser.gender === "MALE" ? (
-                      <>
-                        <ManOutlined className="tw:text-blue-500" />
-                        <span>Nam</span>
-                      </>
-                    ) : selectedUser.gender === "FEMALE" ? (
-                      <>
-                        <WomanOutlined className="tw:text-pink-500" />
-                        <span>Nữ</span>
-                      </>
-                    ) : (
-                      <span>Khác</span>
-                    )}
+                    <ManOutlined className="tw:text-blue-500" />
+                    <span>Nam</span>
                   </div>
                 </Descriptions.Item>
                 <Descriptions.Item label="Địa chỉ">
                   <div className="tw:flex tw:items-start tw:gap-2">
                     <HomeOutlined className="tw:text-slate-400 tw:mt-1" />
-                    <span>{selectedUser.address}</span>
+                    <span>{selectedUser.addresses?.[0]?.detailAddress || "—"}</span>
                   </div>
                 </Descriptions.Item>
                 <Descriptions.Item label="Ngày gia nhập">
@@ -774,27 +718,25 @@ export default function UsersPage() {
                 </h3>
                 <Descriptions column={1} bordered size="small" labelStyle={{ width: "140px", fontWeight: "600", color: "#475569" }}>
                   <Descriptions.Item label="Hạng thành viên">
-                    {getClvTier(selectedUser.totalSpent).name === "Bronze Member" ? (
-                      <Tag>{getClvTier(selectedUser.totalSpent).name}</Tag>
+                    {getClvTier(0).name === "Bronze Member" ? (
+                      <Tag>{getClvTier(0).name}</Tag>
                     ) : (
-                      <Tag color={getClvTier(selectedUser.totalSpent).color}>
-                        {getClvTier(selectedUser.totalSpent).name}
+                      <Tag color={getClvTier(0).color}>
+                        {getClvTier(0).name}
                       </Tag>
                     )}
                   </Descriptions.Item>
                   <Descriptions.Item label="Tổng số đơn mua">
-                    <span className="tw:font-bold tw:text-slate-800">{selectedUser.totalOrders} đơn hàng</span>
+                    <span className="tw:font-bold tw:text-slate-800">{selectedUser.viewsCount ?? 0} đơn hàng</span>
                   </Descriptions.Item>
                   <Descriptions.Item label="Tổng chi tiêu">
                     <span className="tw:font-bold tw:text-green-600">
-                      {formatVND(selectedUser.totalSpent)}
+                      {formatVND(0)}
                     </span>
                   </Descriptions.Item>
                   <Descriptions.Item label="Giá trị đơn trung bình">
                     <span className="tw:text-slate-600 tw:font-medium">
-                      {selectedUser.totalOrders > 0
-                        ? formatVND(Math.round(selectedUser.totalSpent / selectedUser.totalOrders))
-                        : "0 đ"}
+                      0 đ
                     </span>
                   </Descriptions.Item>
                 </Descriptions>

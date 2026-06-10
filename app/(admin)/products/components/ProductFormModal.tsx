@@ -84,7 +84,7 @@ export default function ProductFormModal({
       setFileList(existingImages);
     } else if (open) {
       form.resetFields();
-      form.setFieldsValue({ details: [{ color: "", size: "", price: 0, stock: 0 }] });
+      form.setFieldsValue({ details: [{ color: "", size: "", price: 0 as number, stock: 0 as number }] });
       setFileList([]);
     }
   }, [open, editingProduct, form]);
@@ -172,6 +172,7 @@ export default function ProductFormModal({
           {isEditing ? "Cập nhật sản phẩm" : "Tạo sản phẩm"}
         </Button>,
       ]}
+      forceRender
       destroyOnHidden
     >
 
@@ -320,7 +321,7 @@ export default function ProductFormModal({
                         formatter={(value) =>
                           `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                         }
-                        parser={(value) => value!.replace(/\$\s?|(,*)/g, "") as unknown as number}
+                        parser={(value) => value!.replace(/\$\s?|(,*)/g, "") as any}
                       />
                     </Form.Item>
                     <Form.Item

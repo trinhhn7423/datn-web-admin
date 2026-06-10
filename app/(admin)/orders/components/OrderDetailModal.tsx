@@ -241,7 +241,7 @@ export default function OrderDetailModal({
       centered
     >
       <div className="tw:max-h-[65vh] tw:overflow-y-auto tw:px-6">
-        <div className="tw:grid tw:grid-cols-1 md:tw:grid-cols-2 tw:gap-6 tw:mb-6">
+        <div className="tw:grid tw:grid-cols-1 tw:md:grid-cols-2 tw:gap-6 tw:mb-6">
           {/* Thông tin khách hàng & Giao hàng */}
           <div className="tw:bg-slate-50 tw:p-4 tw:rounded-xl tw:border tw:border-slate-100">
             <div className="tw:flex tw:items-center tw:gap-2 tw:font-semibold tw:text-slate-800 tw:mb-3 tw:text-base">

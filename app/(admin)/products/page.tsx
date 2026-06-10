@@ -193,7 +193,7 @@ export default function ProductsPage() {
                   height={64}
                   className="tw:object-cover"
                   preview={{
-                    mask: <div className="tw:text-[10px]">Xem ảnh</div>,
+                    cover: <div className="tw:text-[10px]">Xem ảnh</div>,
                   }}
                   fallback="https://placehold.co/200x200?text=No+Image"
                 />
@@ -274,25 +274,13 @@ export default function ProductsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="tw:flex tw:flex-col md:tw:flex-row md:tw:items-center tw:justify-between tw:mb-8 tw:gap-4">
-        <div>
-          <h1 className="tw:text-3xl tw:font-extrabold tw:text-slate-900 tw:m-0 tw:tracking-tight">
-            Quản lý Sản phẩm
-          </h1>
-          <p className="tw:text-slate-500 tw:mt-1 tw:mb-0 tw:text-base">
-            Kiểm soát danh mục sản phẩm, biến thể và trạng thái kinh doanh của
-            bạn.
-          </p>
-        </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleOpenCreate}
-          size="large"
-          className="tw:h-12 tw:px-6 tw:rounded-xl tw:bg-blue-600 tw:shadow-lg tw:shadow-blue-200 hover:tw:scale-105 tw:transition-transform"
-        >
-          Thêm sản phẩm mới
-        </Button>
+      <div className="tw:mb-6">
+        <h1 className="tw:text-3xl tw:font-extrabold tw:text-slate-900 tw:m-0 tw:tracking-tight">
+          Quản lý Sản phẩm
+        </h1>
+        <p className="tw:text-slate-500 tw:mt-1 tw:mb-0 tw:text-base">
+          Kiểm soát danh mục sản phẩm, biến thể và trạng thái kinh doanh của bạn.
+        </p>
       </div>
 
       {/* Filter Bar */}
@@ -329,6 +317,16 @@ export default function ProductsPage() {
             className="tw:h-11 tw:px-5 tw:rounded-xl tw:bg-slate-50 tw:text-slate-600 tw:border-slate-200 hover:tw:bg-slate-100"
           >
             Làm mới
+          </Button>
+
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleOpenCreate}
+            size="large"
+            className="tw:h-11 tw:px-5 tw:rounded-xl tw:bg-blue-600 tw:shadow-md tw:shadow-blue-200 hover:tw:scale-105 tw:transition-transform tw:md:ml-auto"
+          >
+            Thêm sản phẩm
           </Button>
         </div>
       </div>

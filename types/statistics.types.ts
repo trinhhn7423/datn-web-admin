@@ -47,3 +47,24 @@ export interface TopCustomerResponseDto {
   totalSpent: number;
   totalOrders: number;
 }
+
+// ─── NEW ANALYTICS TYPES ──────────────────────────────────────────────────────
+
+export interface SalesReportItemDto {
+  label: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface CategoryDistributionDto {
+  categoryId: number;
+  categoryName: string;
+  revenue: number;
+  percentage: number;
+}
+
+export interface CustomerLoyaltyDto {
+  newCustomersCount: number;
+  returningCustomersCount: number;
+  returningRate: number;
+}

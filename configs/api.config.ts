@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
     CREATE: "/users",
     UPDATE: (id: string | number) => `/users/${id}`,
     DELETE: (id: string | number) => `/users/${id}`,
+    GET_COUNTERS: "/users/counters",
   },
   PRODUCTS: {
     ADMIN_LIST: "/products/admin/list",
@@ -38,6 +39,10 @@ export const API_ENDPOINTS = {
     TOP_PRODUCTS: "/statistics/top-products",
     LOW_STOCK: "/statistics/low-stock",
     TOP_CUSTOMERS: "/statistics/top-customers",
+    SALES_REPORT: "/statistics/sales-report",
+    CATEGORY_DISTRIBUTION: "/statistics/category-distribution",
+    CUSTOMER_LOYALTY: "/statistics/customer-loyalty",
+    EXPORT_SALES: "/statistics/export/sales",
   },
   NOTIFICATIONS: {
     STREAM: "/notifications/admin/stream",

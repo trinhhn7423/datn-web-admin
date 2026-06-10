@@ -13,6 +13,7 @@ import {
   LogOut,
   User as UserIcon,
   Layers,
+  BarChart2,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -82,7 +83,12 @@ export default function AdminLayout({
       key: "/orders",
       icon: <ShoppingCart size={20} />,
       label: "Đơn hàng",
-    }
+    },
+    {
+      key: "/reports",
+      icon: <BarChart2 size={20} />,
+      label: "Báo cáo",
+    },
   ];
 
   const activeKey =
@@ -159,7 +165,7 @@ export default function AdminLayout({
 
           <div className="tw:flex tw:items-center tw:gap-4">
             <NotificationBell />
-            <div className="tw:text-right tw:hidden sm:tw:block">
+            <div className="tw:text-right tw:hidden tw:sm:block">
               <p className="tw:text-sm tw:font-semibold tw:text-slate-800 tw:m-0 tw:leading-tight">
                 {user?.fullName || "Quản trị viên"}
               </p>
@@ -174,7 +180,7 @@ export default function AdminLayout({
             >
               <div className="tw:cursor-pointer tw:flex tw:items-center tw:justify-center tw:w-10 tw:h-10 tw:bg-slate-300 tw:rounded-full hover:tw:ring-2 hover:tw:ring-blue-500 tw:transition-all">
                 <Avatar
-                  src={user?.avatarUrl}
+                  src={user?.avatarUrl || undefined}
                   icon={!user?.avatarUrl && <UserIcon size={20} />}
                   className="tw:bg-white tw:text-amber-500"
                 />

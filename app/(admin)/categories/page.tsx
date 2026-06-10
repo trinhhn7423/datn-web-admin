@@ -228,6 +228,7 @@ export default function CategoriesPage() {
             {isEditing ? "Cập nhật" : "Tạo mới"}
           </Button>,
         ]}
+        forceRender
         destroyOnHidden
       >
         <Form form={form} layout="vertical" className="tw:mt-4">
